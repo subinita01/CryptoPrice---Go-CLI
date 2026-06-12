@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -113,6 +114,89 @@ func TestFetchPrices(t *testing.T) {
 		_, err := fetchPrices(&http.Client{Timeout: 5 * time.Second}, srv.URL)
 		if err == nil {
 			t.Error("expected error for empty body, got nil")
+		}
+	})
+}
+
+// TestRunWatch verifies watch mode behaviour without touching a real terminal.
+func TestRunWatch(t *testing.T) {
+	t.Run("fetches and prints prices", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			fmt.Fprint(w, `{"bitcoin":{"usd":50000}}`)
+		}))
+		defer srv.Close()
+
+		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+		defer cancel()
+
+		var buf bytes.Buffer
+		runWatch(ctx, &buf, &http.Client{Timeout: 5 * time.Second}, srv.URL, []string{"bitcoin"}, "usd", 10*time.Millisecond)
+
+		out := buf.String()
+		if !strings.Contains(out, "bitcoin") {
+			t.Errorf("expected bitcoin in output, got: %q", out)
+		}
+		if !strings.Contains(out, "50000.00") {
+			t.Errorf("expected price in output, got: %q", out)
+		}
+	})
+
+	t.Run("prints error on fetch failure and keeps running", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusInternalServerError)
+		}))
+		defer srv.Close()
+
+		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+		defer cancel()
+
+		var buf bytes.Buffer
+		runWatch(ctx, &buf, &http.Client{Timeout: 5 * time.Second}, srv.URL, []string{"bitcoin"}, "usd", 10*time.Millisecond)
+
+		if !strings.Contains(buf.String(), "error") {
+			t.Errorf("expected error message in output, got: %q", buf.String())
+		}
+	})
+
+	t.Run("stops when context is cancelled", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			fmt.Fprint(w, `{"bitcoin":{"usd":1}}`)
+		}))
+		defer srv.Close()
+
+		// A very long interval ensures the loop only exits via context, not the ticker.
+		ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+		defer cancel()
+
+		done := make(chan struct{})
+		go func() {
+			var buf bytes.Buffer
+			runWatch(ctx, &buf, &http.Client{Timeout: 5 * time.Second}, srv.URL, []string{"bitcoin"}, "usd", time.Hour)
+			close(done)
+		}()
+
+		select {
+		case <-done:
+			// passed — returned after context expired
+		case <-time.After(2 * time.Second):
+			t.Error("runWatch did not stop after context cancellation")
+		}
+	})
+
+	t.Run("prints header with interval", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			fmt.Fprint(w, `{"bitcoin":{"usd":1}}`)
+		}))
+		defer srv.Close()
+
+		ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+		defer cancel()
+
+		var buf bytes.Buffer
+		runWatch(ctx, &buf, &http.Client{Timeout: 5 * time.Second}, srv.URL, []string{"bitcoin"}, "usd", 30*time.Millisecond)
+
+		if !strings.Contains(buf.String(), "30ms") {
+			t.Errorf("expected interval in header, got: %q", buf.String())
 		}
 	})
 }

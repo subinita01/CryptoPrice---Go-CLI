@@ -33,6 +33,7 @@ https://www.coingecko.com/en/coins/all.
 |------|---------|-------------|
 | `-currency` | `usd` | vs-currency to quote prices in (e.g. `usd`, `eur`, `btc`) |
 | `-timeout` | `10s` | HTTP request timeout (e.g. `5s`, `30s`) |
+| `-watch` | `0` (off) | Auto-refresh interval; any non-zero duration enables watch mode (e.g. `5s`, `1m`) |
 
 ## Examples
 
@@ -70,6 +71,18 @@ Use a shorter timeout for slow connections:
 
 ```sh
 $ ./cryptoprice bitcoin -timeout 5s
+```
+
+Auto-refresh every 10 seconds (Ctrl-C to quit):
+
+```sh
+$ ./cryptoprice bitcoin ethereum -watch 10s
+cryptoprice  —  refreshing every 10s  (Ctrl-C to quit)
+
+COIN       PRICE (USD)
+----       ----------
+bitcoin    105432.18
+ethereum   2541.07
 ```
 
 If a coin ID is not recognised by CoinGecko the row shows `n/a` instead

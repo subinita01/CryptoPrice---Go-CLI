@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -8,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"os/signal"
 	"strings"
 	"text/tabwriter"
 	"time"
@@ -76,13 +78,37 @@ func printTable(w io.Writer, result PriceResult, coins []string, currency string
 	tw.Flush()
 }
 
+// runWatch repeatedly fetches and prints prices at interval, clearing the
+// terminal before each refresh. It returns as soon as ctx is cancelled,
+// making Ctrl-C (or any signal wired to the context) a clean exit path.
+func runWatch(ctx context.Context, w io.Writer, client *http.Client, rawURL string, coins []string, currency string, interval time.Duration) {
+	for {
+		fmt.Fprint(w, "\033[2J\033[H")
+		fmt.Fprintf(w, "cryptoprice  —  refreshing every %s  (Ctrl-C to quit)\n\n", interval)
+
+		result, err := fetchPrices(client, rawURL)
+		if err != nil {
+			fmt.Fprintf(w, "error: %v\n", err)
+		} else {
+			printTable(w, result, coins, currency)
+		}
+
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(interval):
+		}
+	}
+}
+
 func main() {
 	currency := flag.String("currency", "usd", "vs-currency for prices (e.g. usd, eur, btc)")
 	timeout := flag.Duration("timeout", 10*time.Second, "HTTP request timeout")
+	watch := flag.Duration("watch", 0, "auto-refresh interval (e.g. 5s, 1m); 0 disables watch mode")
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "Usage: cryptoprice [flags] coin [coin ...]\n\nFlags:\n")
 		flag.PrintDefaults()
-		fmt.Fprintf(os.Stderr, "\nExamples:\n  cryptoprice bitcoin\n  cryptoprice bitcoin ethereum solana -currency eur\n")
+		fmt.Fprintf(os.Stderr, "\nExamples:\n  cryptoprice bitcoin\n  cryptoprice bitcoin ethereum solana -currency eur\n  cryptoprice bitcoin -watch 10s\n")
 	}
 	flag.Parse()
 
@@ -95,6 +121,13 @@ func main() {
 
 	client := &http.Client{Timeout: *timeout}
 	rawURL := buildURL(coins, *currency)
+
+	if *watch > 0 {
+		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+		defer stop()
+		runWatch(ctx, os.Stdout, client, rawURL, coins, *currency, *watch)
+		return
+	}
 
 	result, err := fetchPrices(client, rawURL)
 	if err != nil {
