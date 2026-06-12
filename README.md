@@ -1,4 +1,4 @@
-# cryptoprice
+# CryptoPrice
 
 A command-line tool that fetches live cryptocurrency prices from the
 [CoinGecko API](https://www.coingecko.com/en/api) and prints them in a
