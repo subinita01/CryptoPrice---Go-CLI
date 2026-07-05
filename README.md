@@ -4,17 +4,56 @@ A command-line tool that fetches live cryptocurrency prices from the
 [CoinGecko API](https://www.coingecko.com/en/api) and prints them in a
 formatted table. No API key required.
 
+## Features
+
+- Fetch prices for one or more coins
+- View the top coins by market cap
+- Watch mode with automatic refresh intervals
+- Built-in version output for quick verification
+- No API key required
+
 ## Requirements
 
 - Go 1.18 or later
 - Internet access (CoinGecko free tier, no authentication needed)
 
-## Build
+## Install
+
+From the project root, install and build the CLI with one command:
+
+On Windows PowerShell:
+
+```powershell
+./install.ps1
+```
+
+On macOS/Linux:
+
+```sh
+chmod +x install.sh
+./install.sh
+```
+
+The scripts build a local binary named `cryptoprice` (or `cryptoprice.exe` on Windows) in the project folder.
+
+## Build from source
 
 ```sh
 git clone <repo-url>
 cd cryptoprice
 go build -o cryptoprice .
+```
+
+Run the built binary with:
+
+```sh
+./cryptoprice bitcoin
+```
+
+On Windows PowerShell:
+
+```powershell
+.\cryptoprice.exe bitcoin
 ```
 
 ## Usage
@@ -35,6 +74,7 @@ https://www.coingecko.com/en/coins/all.
 | `-timeout` | `10s` | HTTP request timeout (e.g. `5s`, `30s`) |
 | `-watch` | `0` (off) | Auto-refresh interval; any non-zero duration enables watch mode (e.g. `5s`, `1m`) |
 | `-top` | `0` (off) | Fetch top N coins by market cap instead of specific coins (e.g. `-top 10`) |
+| `-version` | `false` | Print the installed version and exit |
 
 ## Examples
 
@@ -121,8 +161,10 @@ Tests use `net/http/httptest` — no live network calls are made.
 
 ```
 .
-├── main.go       # entry point: flag parsing, URL building, API fetch, table output
-├── main_test.go  # unit tests for buildURL, fetchPrices, and printTable
-├── go.mod        # module definition (module name: cryptoprice)
+├── main.go          # entry point: flag parsing, URL building, API fetch, and table output
+├── main_test.go     # unit tests for URL builders, API fetchers, and formatting helpers
+├── install.ps1      # Windows installer script
+├── install.sh       # macOS/Linux installer script
+├── go.mod           # module definition (module name: cryptoprice)
 └── README.md
 ```
