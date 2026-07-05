@@ -19,6 +19,7 @@ import (
 const (
 	baseURL    = "https://api.coingecko.com/api/v3/simple/price"
 	marketsURL = "https://api.coingecko.com/api/v3/coins/markets"
+	version    = "v1.1.0"
 )
 
 // PriceResult maps each coin ID to a map of currency → price.
@@ -53,6 +54,11 @@ func buildMarketsURL(n int, currency string) string {
 	params.Set("per_page", strconv.Itoa(n))
 	params.Set("page", "1")
 	return marketsURL + "?" + params.Encode()
+}
+
+// printVersion writes the program name and version to w.
+func printVersion(w io.Writer) {
+	fmt.Fprintf(w, "cryptoprice %s\n", version)
 }
 
 // fetchTopCoins performs a GET request to rawURL and decodes the JSON array
@@ -198,6 +204,7 @@ func main() {
 	timeout := flag.Duration("timeout", 10*time.Second, "HTTP request timeout")
 	watch := flag.Duration("watch", 0, "auto-refresh interval (e.g. 5s, 1m); 0 disables watch mode")
 	top := flag.Int("top", 0, "fetch top N coins by market cap (e.g. -top 10); mutually exclusive with coin arguments")
+	showVersion := flag.Bool("version", false, "print version information and exit")
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "Usage: cryptoprice [flags] coin [coin ...]\n\nFlags:\n")
 		flag.PrintDefaults()
@@ -206,6 +213,11 @@ func main() {
 	flag.Parse()
 
 	coins := flag.Args()
+
+	if *showVersion {
+		printVersion(os.Stdout)
+		return
+	}
 
 	if *top > 0 && len(coins) > 0 {
 		fmt.Fprintln(os.Stderr, "error: -top and coin arguments are mutually exclusive")
