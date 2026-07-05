@@ -47,6 +47,18 @@ func TestBuildURL(t *testing.T) {
 	}
 }
 
+func TestPrintVersion(t *testing.T) {
+	var buf bytes.Buffer
+	printVersion(&buf)
+	out := buf.String()
+	if !strings.Contains(out, "cryptoprice") {
+		t.Fatalf("version output missing program name: %q", out)
+	}
+	if !strings.Contains(out, version) {
+		t.Fatalf("version output missing version %q: %q", version, out)
+	}
+}
+
 // TestFetchPrices exercises the HTTP layer using a local httptest server so no
 // real network calls are made.
 func TestFetchPrices(t *testing.T) {
